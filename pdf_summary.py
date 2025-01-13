@@ -2,6 +2,7 @@ import json
 import os
 
 import boto3
+from botocore.exceptions import ClientError
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -9,16 +10,28 @@ load_dotenv()
 class Summary:
     def __init__(self):
         
-        self.bedrock_runtime = boto3.client(
-            service_name="bedrock-runtime",
-            region_name=os.getenv("AWS_REGION"),
-            aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
-            aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY")
-        )
-        
-        self.model_id = os.getenv("AWS_BEDROCK_MODEL_ID")
-        self.system = [{"text": "添付されたPDFファイルを要約し、内容を日本語で返してください。要約については、多くて最大10000文字程度で纏めてください。"}]
+        if os.getenv("AWS_ACCESS_KEY_ID") is None:
+            raise KeyError("AWS_ACCESS_KEY_ID is not set.")
+        if os.getenv("AWS_SECRET_ACCESS_KEY") is None:
+            raise KeyError("AWS_SECRET_ACCESS_KEY is not set.")
+        if os.getenv("AWS_DEFAULT_REGION") is None:
+            raise KeyError("AWS_DEFAULT_REGION is not set.")
+        if os.getenv("AWS_BEDROCK_MODEL_ID") is None:
+            raise KeyError("AWS_BEDROCK_MODEL_ID is not set.")
+        try:
+            self.bedrock_runtime = boto3.client(
+                service_name="bedrock-runtime",
+                region_name=os.getenv("AWS_REGION"),
+                aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+                aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY")
+            )
 
+            self.model_id = os.getenv("AWS_BEDROCK_MODEL_ID")
+            self.system = [{"text": "添付されたPDFファイルを要約し、内容を日本語で返してください。要約については、多くて最大10000文字程度で纏めてください。"}]
+            
+        except ClientError as err:
+            raise err
+        
     def generate_message(self, pdf_data):
         
         inferenceConfig ={
@@ -38,6 +51,7 @@ class Summary:
                     {"text": "PDF Documentの内容を要約して"}
                 ]
             }]
+        
         response = self.bedrock_runtime.converse(
             modelId=self.model_id,
             messages=user_message,

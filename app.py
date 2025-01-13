@@ -1,10 +1,14 @@
 import os
 
 import streamlit as st
+from botocore.exceptions import ClientError
 from dotenv import load_dotenv
 
-load_dotenv()
+from logger_setup import setup_logger
 from pdf_summary import Summary
+
+logger = setup_logger()
+load_dotenv()
 
 summary_instance = Summary()
 
@@ -25,9 +29,10 @@ if uploaded_file is not None:
         with st.spinner("要約中..."):
             pdf = uploaded_file.read()
             response = summary_instance.generate_message(pdf)
-
+            summary_text = response['output']['message']['content'][0]['text']
+            logger.info(f"{response}")
             with st.chat_message("assistant"):
-                st.markdown(str(response))
+                st.markdown(summary_text)
     
     except Exception as e:
-        st.error(f"予期しないエラーが発生しました: {e}")
+        st.error(f"エラーが発生しました: {e}")
