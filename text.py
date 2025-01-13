@@ -22,8 +22,8 @@ def generate_message(bedrock_runtime, model_id, system_prompt, messages, max_tok
         messages=messages,
         inferenceConfig=inferenceConfig
     )
-    response_body = response["output"]["message"]["content"][0]["text"]
-    return response_body
+    # response_body = response["output"]["message"]["content"][0]["text"]
+    return response
 
 def main():
     
