@@ -11,21 +11,18 @@ load_dotenv()
 
 def generate_message(bedrock_runtime, model_id, system_prompt, messages, max_tokens):
     
-    body=json.dumps(
-        {
-            "anthropic_version": "bedrock-2023-05-31",
-            "max_tokens" : max_tokens,
-            "system": system_prompt,
-            "messages": messages
-        }
-    )
+    inferenceConfig ={
+        "temperature": 0.5,
+        "topP": 0.9,
+        "maxTokens": max_tokens,
+    }
 
-    response = bedrock_runtime.invoke_model(
-        body=body,
-        modelId=model_id
+    response = bedrock_runtime.converse(
+        modelId=model_id,
+        messages=messages,
+        inferenceConfig=inferenceConfig
     )
-    response_body = json.loads(response.get('body').read())
-
+    response_body = response["output"]["message"]["content"][0]["text"]
     return response_body
 
 def main():
@@ -39,9 +36,9 @@ def main():
     
     model_id = os.getenv("AWS_BEDROCK_MODEL_ID")
     system_prompt = "これはテストです。適当な答えを日本語で返してください"
-    max_tokens = 200000
+    max_tokens = 200
 
-    user_message = {"role":"user", "content": "こんにちは~"}
+    user_message = {"role":"user", "content": [{"text": "こんにちは～"}]}
     messages = [user_message]
     
     response = generate_message(
@@ -53,12 +50,6 @@ def main():
     )
 
     print('User turn only.')
-    print(json.dumps(response, indent=4, ensure_ascii=False))
-    
-    assistant_message = {"role":"assistant", "content": "<emoji>"}
-    messages = [user_message, assistant_message]
-    response = generate_message(bedrock_runtime, model_id, system_prompt, messages, max_tokens)
-    print('User turn and p@refilled assistant response.')
     print(json.dumps(response, indent=4, ensure_ascii=False))
 
 if __name__ == "__main__":
