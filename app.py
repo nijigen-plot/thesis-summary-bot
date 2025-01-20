@@ -30,6 +30,7 @@ if uploaded_file is not None:
             pdf = uploaded_file.read()
             response = summary_instance.generate_message(pdf)
             summary_text = response['output']['message']['content'][0]['text']
+            response['filename'] = uploaded_file.name
             logger.info(f"{response}")
             with st.chat_message("assistant"):
                 st.markdown(summary_text)
