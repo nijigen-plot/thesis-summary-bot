@@ -1,7 +1,7 @@
+import base64
 import os
 
 import streamlit as st
-from botocore.exceptions import ClientError
 from dotenv import load_dotenv
 
 from logger_setup import setup_logger
@@ -28,8 +28,9 @@ if uploaded_file is not None:
     try:
         with st.spinner("要約中..."):
             pdf = uploaded_file.read()
-            response = summary_instance.generate_message(pdf)
-            summary_text = response['output']['message']['content'][0]['text']
+            pdf_data = base64.standard_b64encode(pdf).decode('utf-8')
+            response = summary_instance.generate_message(pdf_data)
+            summary_text = response["text"]
             response['filename'] = uploaded_file.name
             logger.info(f"{response}")
             with st.chat_message("assistant"):

@@ -1,8 +1,7 @@
 import json
 import os
 
-import boto3
-from botocore.exceptions import ClientError
+import anthropic
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -10,53 +9,55 @@ load_dotenv()
 class Summary:
     def __init__(self):
         
-        if os.getenv("AWS_ACCESS_KEY_ID") is None:
-            raise KeyError("AWS_ACCESS_KEY_ID is not set.")
-        if os.getenv("AWS_SECRET_ACCESS_KEY") is None:
-            raise KeyError("AWS_SECRET_ACCESS_KEY is not set.")
-        if os.getenv("AWS_DEFAULT_REGION") is None:
-            raise KeyError("AWS_DEFAULT_REGION is not set.")
-        if os.getenv("AWS_BEDROCK_MODEL_ID") is None:
-            raise KeyError("AWS_BEDROCK_MODEL_ID is not set.")
-        try:
-            self.bedrock_runtime = boto3.client(
-                service_name="bedrock-runtime",
-                region_name=os.getenv("AWS_REGION"),
-                aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
-                aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY")
-            )
-
-            self.model_id = os.getenv("AWS_BEDROCK_MODEL_ID")
-            self.system = [{"text": "添付されたPDFファイルを要約し、内容を日本語で返してください。要約については、多くて最大10000文字程度で纏めてください。"}]
-            
-        except ClientError as err:
-            raise err
+        if os.getenv("ANTHROPIC_API_KEY") is None:
+            raise KeyError("ANTHROPIC_API_KEY is not set.")
+        if os.getenv("ANTHROPIC_MODEL_NAME") is None:
+            raise KeyError("ANTHROPIC_MODEL_NAME is not set.")
+        self.client = anthropic.Anthropic() # デフォルトでANTHROPIC_API_KEY環境変数を読む
+        self.model_name = os.getenv("ANTHROPIC_MODEL_NAME")
+        self.system_text = "添付されたPDFファイルを要約し、内容を日本語で返してください。要約については、多くて最大10000文字程度で纏めてください。"
         
     def generate_message(self, pdf_data):
-        
-        inferenceConfig ={
-            "temperature": 0.5,
-            "topP": 0.9
-        }
-        user_message = [{
-                "role":"user", 
-                "content": [
-                    {
-                        "document" : {
-                            "name": "PDF Document",
-                            "format": "pdf",
-                            "source": {"bytes": pdf_data},
+        message = self.client.messages.create(
+            model=self.model_name,
+            max_tokens=4096,
+            messages=[
+                {
+                    "role": "user", 
+                    "content": [
+                        {
+                            "type": "document",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "application/pdf",
+                                "data": pdf_data
+                            },
+                            "cache_control": {"type": "ephemeral"}
+                        },
+                        {
+                            "type": "text",
+                            "text": "PDF Documentの内容を要約して"
                         }
-                    },
-                    {"text": "PDF Documentの内容を要約して"}
-                ]
-            }]
-        
-        response = self.bedrock_runtime.converse(
-            modelId=self.model_id,
-            messages=user_message,
-            inferenceConfig=inferenceConfig,
-            system=self.system
+                    ]
+                }
+            ],
+            system=self.system_text,
+            temperature=0.5
         )
-        # response_body = response["output"]["message"]["content"][0]["text"]
-        return response
+        if message.type == 'error':
+            raise Exception(f"Error: {message['error']}")
+        # Messageクラスをdictに変換
+        result = {
+            "id": message.id,
+            "text": message.content[0].text,
+            "model": message.model,
+            "role": message.role,
+            "stop_reason": message.stop_reason,
+            "stop_sequence": message.stop_sequence,
+            "type": message.type,
+            "cache_creation_input_tokens": message.usage.cache_creation_input_tokens,
+            "cache_read_input_tokens": message.usage.cache_read_input_tokens,
+            "input_tokens": message.usage.input_tokens,
+            "output_tokens": message.usage.output_tokens
+        }
+        return result
